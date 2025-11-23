@@ -6,7 +6,7 @@
   "scripts": {
     "test": "mocha tests/*.test.js",
     "lint": "eslint src/ tests/",
-    "start": "nodemon src/index.j"
+    "start": "nodemon src/index.js"
   },
   "keywords": [
     "async",
@@ -16,17 +16,28 @@
     "detector",
     "debugging"
   ],
-  "author": "",
+  "author": "Manjeet Thakur",
   "license": "MIT",
-  "devDependencies": {
-    "eslint": "^8.0.0",
-    "mocha": "^10.0.0"
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Manjeet-singh-thakur/awaitly.git"
   },
+  "bugs": {
+    "url": "https://github.com/Manjeet-singh-thakur/awaitly/issues"
+  },
+  "homepage": "https://github.com/Manjeet-singh-thakur/awaitly#readme",
   "engines": {
     "node": ">=14"
   },
-  "dependencies": {
-    "dotenv": "^17.2.3",
-    "nodemon": "^3.1.10"
+  "files": [
+    "src/",
+    "README.md",
+    "LICENSE"
+  ],
+  "devDependencies": {
+    "eslint": "^8.0.0",
+    "mocha": "^10.0.0",
+    "nodemon": "^3.1.10",
+    "dotenv": "^17.2.3"
   }
 }
