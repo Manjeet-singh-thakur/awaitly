@@ -1,0 +1,53 @@
+# Ignore dependencies
+node_modules/
+npm-debug.log
+
+# Ignore tests
+test/
+__tests__/
+coverage/
+*.spec.js
+*.test.js
+
+# Ignore examples, demos & playgrounds
+example/
+examples/
+demo/
+
+# Ignore configs not needed in the package
+.eslint*
+.prettier*
+.editorconfig
+jsconfig.json
+tsconfig.json
+
+# Ignore build artifacts
+dist/
+build/
+*.map
+
+# Ignore OS & IDE files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Ignore local archives
+*.zip
+*.tar.gz
+
+# Ignore environment & private files
+.env
+.env.*
+*.local
+
+# Ignore output screenshots, debug files
+logs/
+*.log
+
+# Ignore your own readme drafts 
+README_FULL.md
+
+# Ignore everything else accidental
+*.swp
+*.tmp
