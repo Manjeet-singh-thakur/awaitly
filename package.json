@@ -1,6 +1,6 @@
 {
   "name": "await-leak-detector",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Detect unhandled async/await calls and Promise leaks in JavaScript applications",
   "main": "src/index.js",
   "scripts": {
