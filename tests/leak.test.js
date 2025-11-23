@@ -1,5 +1,10 @@
 const assert = require('assert');
 const awaitLeakDetector = require('../src');
+const { tracker } = awaitLeakDetector;
+
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 describe('Promise Leak Detection', () => {
   beforeEach(() => {
@@ -7,33 +12,31 @@ describe('Promise Leak Detection', () => {
   });
 
   afterEach(() => {
+    // full clean reset (restores Promise + clears trackers)
     awaitLeakDetector.disable();
+    if (tracker.clear) tracker.clear();
   });
 
-  it('should track unhandled promises', async () => {
-    function delay(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+  it('should track unhandled (floating) promises', async () => {
+    // floating promise – never awaited, never resolved
+    new Promise(() => {});
 
-    // create a promise that never resolves
-    const p = new Promise(() => {});
+    await delay(20); // wait for tracker to register
 
-    // wait a tick to allow tracker to register
-    await delay(10);
-
-    const count = awaitLeakDetector.tracker.getPendingCount();
-    assert.ok(count >= 1, `expected at least 1 pending promise, got ${count}`);
+    const count = tracker.getPendingCount();
+    assert.ok(
+      count >= 1,
+      `expected at least 1 pending promise, got ${count}`
+    );
   });
 
-  it('should not report properly awaited promises', async () => {
-    function delay(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
-
-    const p = new Promise(resolve => setTimeout(() => resolve(42), 5));
-    const val = await p;
+  it('should not report awaited / properly resolved promises', async () => {
+    const val = await new Promise(resolve => setTimeout(() => resolve(42), 5));
     assert.strictEqual(val, 42);
 
-    // give finally handlers a moment to run
-    await delay(10);
+    await delay(20); // allow finally to untrack
 
-    const count = awaitLeakDetector.tracker.getPendingCount();
+    const count = tracker.getPendingCount();
     assert.strictEqual(count, 0, `expected 0 pending promises, got ${count}`);
   });
 });

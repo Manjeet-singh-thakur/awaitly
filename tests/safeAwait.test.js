@@ -1,5 +1,10 @@
 const assert = require('assert');
 const awaitLeakDetector = require('../src');
+const { tracker } = awaitLeakDetector;
+
+function delay(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
 
 describe('Safe Await Usage', () => {
   beforeEach(() => {
@@ -8,23 +13,32 @@ describe('Safe Await Usage', () => {
 
   afterEach(() => {
     awaitLeakDetector.disable();
+    if (tracker.clear) tracker.clear();
   });
 
   it('should handle async/await correctly', async () => {
-    async function foo() { return 7; }
+    async function foo() {
+      return 7;
+    }
+
     const v = await foo();
     assert.strictEqual(v, 7);
 
-    // small delay to allow tracker cleanup
-    await new Promise(r => setTimeout(r, 5));
-    assert.strictEqual(awaitLeakDetector.tracker.getPendingCount(), 0);
+    await delay(10); // allow cleanup
+
+    assert.strictEqual(tracker.getPendingCount(), 0);
   });
 
-  it('should work with Promise chains', async () => {
-    const p = Promise.resolve(1).then(v => v + 1).then(v => v + 1);
-    const val = await p;
-    assert.strictEqual(val, 3);
-    await new Promise(r => setTimeout(r, 5));
-    assert.strictEqual(awaitLeakDetector.tracker.getPendingCount(), 0);
+  it('should work correctly with Promise chains', async () => {
+    const p = Promise.resolve(1)
+      .then(v => v + 1)
+      .then(v => v + 1);
+
+    const v = await p;
+    assert.strictEqual(v, 3);
+
+    await delay(10);
+
+    assert.strictEqual(tracker.getPendingCount(), 0);
   });
 });

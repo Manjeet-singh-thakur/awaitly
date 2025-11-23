@@ -1,18 +1,39 @@
 
+---
 
-# **awaitly**
+# **await-leak-detector**
 
-`awaitly` (npm: **`await-leak-detector`**) is a small development-time utility that helps you catch **un-awaited Promises** — a common cause of hidden async leaks, hanging tests, and “nothing happens but no error” bugs.
+### *Catch un-awaited Promises before they crash your app*
 
-It works by temporarily instrumenting `global.Promise`, tracking newly created Promises, and warning you when a promise stays pending beyond a configured timeout.
+`await-leak-detector` (nicknamed **awaitly**) is a development-time tool that helps you find **un-awaited Promises** — one of the most common hidden sources of:
 
-> ⚠️ **Use only in development/test environments.**
-> This package overrides the global `Promise` constructor, which can affect other libraries.
-> Never enable it in production builds.
+* Silent async failures
+* Background “ghost” operations
+* Hanging Jest/Mocha tests
+* Memory leaks
+* API calls that never complete
+* Mongoose queries stuck forever
+
+It works by monkey-patching the global `Promise` constructor and tracking any newly-created Promises that **start execution but never resolve**.
+
+> ⚠️ **Use only in development or testing environments.**
+> Never enable this in production.
 
 ---
 
-## 🚀 Installation
+# ⭐ Features
+
+* 🔍 Detects un-awaited async operations
+* ⚡ Detects Axios/fetch leaks
+* 🍃 Detects MongoDB leaks *(only when queries actually start)*
+* 🧪 Perfect for Mocha/Jest debugging
+* 🛠 Minimal API – just `enable()` and `disable()`
+* 📌 Provides diagnostics for pending Promises
+* 🔄 Zero dependencies
+
+---
+
+# 📦 Installation
 
 ```bash
 npm install await-leak-detector
@@ -20,27 +41,77 @@ npm install await-leak-detector
 
 ---
 
-## 🟦 Quick Example (Node.js)
+# 🚀 Quick Start
 
 ```js
-// example/node-demo.js
 const awaitLeak = require("await-leak-detector");
 
-// Start tracking (defaults: timeout 5000ms, interval 1000ms)
+// Start tracking
 awaitLeak.enable();
 
-// Create an un-awaited Promise (simulated leak)
+// Un-awaited promise (simulated leak)
 new Promise(() => {});
 
-// Stop tracking when done (important in automated tests)
+// Stop tracking and restore Promise
 awaitLeak.disable();
 ```
 
 ---
 
-## 🟩 Usage in React (Browser)
+# 🧠 Understanding How Leak Detection Works
 
-Enable it only during **development**:
+`await-leak-detector` **only tracks Promises that actually start running**.
+
+That means:
+
+### ✔ Axios / Fetch → **always detected**
+
+Because they immediately create a real Promise:
+
+```js
+axios.get("/api");      // detected as leak
+fetch("/data");         // detected as leak
+```
+
+### ✔ MongoDB (Mongoose) → **detected only when executed**
+
+**Lazy query → not detected:**
+
+```js
+Users.findOne({});       // NOT detected — no Promise is created yet
+```
+
+**Executed query → detected:**
+
+```js
+Users.findOne({}).exec();  // DETECTED — real Promise created
+await Users.findOne();     // DETECTED
+```
+
+Why?
+Mongoose queries are **lazy** — they don’t create a Promise until:
+
+* `.exec()` is called
+* `await` is used
+* `.then()` is used
+
+---
+
+# 🟩 Recommended Usage (Node.js)
+
+### Detect leaks inside your application startup:
+
+```js
+const awaitLeak = require("await-leak-detector");
+
+if (process.env.NODE_ENV !== "production") {
+  awaitLeak.enable({ timeoutMs: 3000, intervalMs: 500 });
+}
+```
+
+---
+
+# 🟦 Usage in React / Browser
 
 ```js
 // src/setupAwaitly.js
@@ -48,80 +119,137 @@ import awaitLeak from "await-leak-detector";
 
 if (process.env.NODE_ENV === "development") {
   awaitLeak.enable({
-    timeoutMs: 2000,   // how long to wait before reporting a leak
-    intervalMs: 500    // how frequently to scan pending promises
+    timeoutMs: 2000,
+    intervalMs: 500
   });
 }
 ```
 
-Then import this early in your app entry point:
+and import early:
 
 ```js
-// src/index.js
 import "./setupAwaitly";
 ```
 
-This ensures promises created during app bootstrap are also tracked.
+---
+
+# 🔥 Real Examples
+
+## 1️⃣ **Leaking Axios Request (detected)**
+
+```js
+async function leak() {
+  axios.get("https://api.example.com");  // un-awaited → LEAK
+}
+leak();
+```
 
 ---
 
-## 📚 API Reference
-
-### **`awaitLeak.enable([options])`**
-
-Starts tracking newly created promises.
-
-**Options:**
-
-* `timeoutMs` *(number)* – how long a promise can stay pending before it’s considered a leak
-  **default:** `5000`
-* `intervalMs` *(number)* – how often the system checks for pending promises
-  **default:** `1000`
-
-You can call this in three ways:
+## 2️⃣ **Leaking Mongoose Query (detected)**
 
 ```js
-awaitLeak.enable();                          // use defaults
-awaitLeak.enable(3000);                      // timeout only
-awaitLeak.enable({ timeoutMs: 3000 });       // options object
+async function leak() {
+  Users.findOne({}).exec();   // un-awaited exec() → LEAK
+}
+leak();
+```
+
+---
+
+## 3️⃣ **Mongoose lazy query (NOT detected)**
+
+```js
+Users.findOne({});  // does NOT create a real Promise yet
+```
+
+This is expected.
+
+---
+
+## 4️⃣ **Proper awaited async function (safe)**
+
+```js
+async function safe() {
+  return await axios.get("/api");
+}
+```
+
+---
+
+# 📚 API
+
+## **`awaitLeak.enable([options])`**
+
+Starts tracking newly created Promises.
+
+### Options
+
+| Option       | Type   | Default | Description                                               |
+| ------------ | ------ | ------- | --------------------------------------------------------- |
+| `timeoutMs`  | number | 5000    | How long a promise can stay pending before marked as leak |
+| `intervalMs` | number | 1000    | How frequently to scan pending promises                   |
+
+### Examples
+
+```js
+awaitLeak.enable();
+awaitLeak.enable(3000);
+awaitLeak.enable({ timeoutMs: 3000 });
 awaitLeak.enable({ timeoutMs: 3000, intervalMs: 500 });
 ```
 
 ---
 
-### **`awaitLeak.disable()`**
+## **`awaitLeak.disable()`**
 
-Stops tracking, restores the original global Promise, and clears any internal state.
+Stops tracking and restores the original global Promise.
 
-Use this when:
+Use when:
 
-* Your test has finished running
-* You want to temporarily turn off the leak detector
-* You want to re-enable with different options
+* Tests finish running
+* You want to reset internal state
+* You re-enable with different settings
 
 ---
 
-### **Diagnostics (`awaitLeak.tracker`)**
+# 🧪 Testing Support
+
+You can access diagnostics:
 
 ```js
-awaitLeak.tracker.getPendingCount();   // number of tracked pending promises
-awaitLeak.tracker.getPendingTraces();  // traces associated with each pending promise
-awaitLeak.tracker.clear();             // reset internal state
+awaitLeak.tracker.getPendingCount();   // number of pending promises
+awaitLeak.tracker.getPendingTraces();  // stack traces of leaked promises
+awaitLeak.tracker.clear();             // reset
 ```
-
-These helpers are useful for testing or for custom tooling.
 
 ---
 
-## ⚠️ Important Warning
+# ⚠️ Warnings & Limitations
 
-`awaitly` **monkey-patches** the global Promise object.
-While safe for local development, this can:
+* This module overrides the **global Promise** — use only in dev/test.
+* Lazy async operations (like Mongoose queries) are only detected when executed.
+* Some libraries that monkey-patch Promises may conflict.
+* Should not be used in SSR production environments.
 
-* Interfere with polyfills or shims
-* Affect some 3rd-party libraries that extend `Promise`
-* Cause unpredictable behavior in production builds
+---
 
-👉 **Use it ONLY for debugging or testing**, never in production apps.
+# 👍 Why Use This?
+
+Because mistakes like this are extremely common:
+
+```js
+Users.findOne({});         // no await → silently ignored
+axios.post("/create");     // request sent but no error shown
+doSomethingAsync();        // background promise → never handled
+```
+
+`await-leak-detector` helps you catch them **immediately**, with stack traces.
+
+---
+
+# 📜 License
+
+MIT © 2025
 
 ---
