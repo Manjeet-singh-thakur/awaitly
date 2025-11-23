@@ -2,7 +2,7 @@
 'use strict';
 
 const { logger } = require('./utils/logger');
-const { parseStack } = require('./utils/stackParser');
+const { parseStack, parseTopFrame } = require('./utils/stackParser');
 
 class PromiseTracker {
   constructor() {
@@ -20,11 +20,13 @@ class PromiseTracker {
 
   trackPromise(promise, stack) {
     const trace = parseStack(stack);
+    const topFrame = parseTopFrame(stack);
     const id = ++this._idCounter;
     const meta = {
       id,
       createdAt: Date.now(),
-      trace
+      trace,
+      topFrame
     };
 
     try {
@@ -75,8 +77,11 @@ class PromiseTracker {
     const now = Date.now();
     for (const meta of this._index.values()) {
       if (now - meta.createdAt > timeoutMs) {
-        logger.warn(`Potential leak detected: Promise pending for ${now - meta.createdAt}ms`);
-        logger.debug(meta.trace);
+        // include top frame (file:line) in warning so developers see where the promise originated
+        const loc = meta.topFrame ? ` (${meta.topFrame})` : '';
+        // include full trace in the warning so developers immediately see file:line and stack
+        const msg = `Potential leak detected: Promise pending for ${now - meta.createdAt}ms${loc}\n${meta.trace}`;
+        logger.warn(msg);
       }
     }
   }
